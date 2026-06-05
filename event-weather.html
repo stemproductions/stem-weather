@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>Event Forecast</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--line:#262b36;--txt:#e8ebf0;--mut:#9aa3b2;--green:#1f7a3d;--amber:#9a6b00;--red:#9a2622;--gb:#13301f;--ab:#2e2410;--rb:#2e1413}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt);padding:14px;font-size:15px;line-height:1.4}
+.wrap{max-width:640px;margin:0 auto}
+h1{font-size:15px;margin:0 0 2px;font-weight:600}
+.sub{color:var(--mut);font-size:12.5px;margin-bottom:12px}
+.banner{border-radius:10px;padding:11px 13px;font-weight:600;margin-bottom:12px;border:1px solid transparent;font-size:14px;display:flex;gap:9px;align-items:center}
+.bg{background:var(--gb);border-color:var(--green)}.ba{background:var(--ab);border-color:var(--amber)}.br{background:var(--rb);border-color:var(--red)}
+.dot{font-size:17px;line-height:1}
+.rows{display:grid;gap:8px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 13px;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.m{font-weight:600;font-size:14px}.m small{display:block;color:var(--mut);font-weight:400;font-size:12px;margin-top:1px}
+.c{text-align:right;font-size:13px;color:var(--mut)}.c b{color:var(--txt);font-size:15px;display:block;font-weight:600}
+.flag{display:inline-block;background:#332;color:#ffd479;border:1px solid #6b5310;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:5px;margin-left:6px}
+.foot{color:var(--mut);font-size:11.5px;margin-top:12px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.err{background:var(--rb);border:1px solid var(--red);border-radius:10px;padding:12px;font-size:13px}
+</style></head><body>
+<div class="wrap" id="app"><div class="sub">Loading live forecast...</div></div>
+<script>
+const W={0:["Clear","☀️"],1:["Mainly clear","🌤️"],2:["Partly cloudy","⛅"],3:["Overcast","☁️"],45:["Fog","🌫️"],48:["Fog","🌫️"],51:["Light drizzle","🌦️"],53:["Drizzle","🌦️"],55:["Drizzle","🌧️"],61:["Light rain","🌦️"],63:["Rain","🌧️"],65:["Heavy rain","🌧️"],71:["Light snow","🌨️"],73:["Snow","🌨️"],75:["Heavy snow","❄️"],80:["Light showers","🌦️"],81:["Showers","🌧️"],82:["Heavy showers","⛈️"],95:["Thunderstorm","⛈️"],96:["T-storm/hail","⛈️"],99:["T-storm/hail","⛈️"]};
+const q=(k,d)=>{const v=new URLSearchParams(location.search).get(k);return v===null?d:v};
+const P={lat:q("lat","40.9026"),lon:q("lon","-74.2204"),tz:q("tz","America/New_York"),date:q("date",""),venue:q("venue","Event Venue"),moments:q("moments","Load-In@14:00,Ceremony@16:30!outdoor,Reception End@22:00").split(",")};
+const app=document.getElementById("app");
+const f12=s=>{let[h,m]=s.split(":").map(Number);const a=h>=12?"PM":"AM";h=h%12||12;return h+":"+String(m).padStart(2,"0")+" "+a};
+const err=m=>{app.innerHTML='<div class="err">⚠️ '+m+'</div>'};
+async function run(){
+if(!P.date){err("No event date in the embed URL (?date=YYYY-MM-DD).");return}
+const u="https://api.open-meteo.com/v1/forecast?latitude="+P.lat+"&longitude="+P.lon+"&hourly=temperature_2m,apparent_temperature,precipitation_probability,weathercode,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone="+encodeURIComponent(P.tz)+"&start_date="+P.date+"&end_date="+P.date;
+let d;try{const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);d=await r.json()}catch(e){err("Couldn't reach Open-Meteo ("+e.message+"). Refresh to retry.");return}
+const H=d.hourly;if(!H||!H.time){err("No hourly data for this date yet - it may be beyond the ~16-day forecast horizon. It fills in automatically as the date nears.");return}
+const at=hh=>{const i=H.time.indexOf(P.date+"T"+hh+":00");return i<0?null:{t:Math.round(H.temperature_2m[i]),fl:Math.round(H.apparent_temperature[i]),pop:H.precipitation_probability[i],wc:H.weathercode[i],wd:Math.round(H.windspeed_10m[i])}};
+const M=P.moments.map(s=>{const o=s.includes("!outdoor");s=s.replace("!outdoor","");const[l,h]=s.split("@");return{l:l.trim(),h:h.trim(),o:o,w:at(h.trim())}});
+const outs=M.filter(m=>m.o&&m.w);let banner="";
+if(outs.length){const x=outs.reduce((a,b)=>b.w.pop>a.w.pop?b:a),p=x.w.pop;let c,dt,tx;
+if(p>=50){c="br";dt="🔴";tx="OUTDOOR "+x.l.toUpperCase()+" ("+f12(x.h)+") - "+p+"% precip. Plan on rain backup."}
+else if(p>=20){c="ba";dt="🟠";tx="OUTDOOR "+x.l.toUpperCase()+" ("+f12(x.h)+") - "+p+"% precip. Keep an eye on it."}
+else{c="bg";dt="🟢";tx="OUTDOOR "+x.l.toUpperCase()+" ("+f12(x.h)+") - "+p+"% precip. Looking clear."}
+banner='<div class="banner '+c+'"><span class="dot">'+dt+'</span><span>'+tx+'</span></div>'}
+const rows=M.map(m=>{if(!m.w)return '<div class="row"><div class="m">'+m.l+' <small>'+f12(m.h)+'</small></div><div class="c">-</div></div>';
+const wm=W[m.w.wc]||["-","•"],fl=m.o?'<span class="flag">OUTDOOR</span>':"";
+return '<div class="row"><div class="m">'+m.l+' '+fl+'<small>'+f12(m.h)+'</small></div><div class="c"><b>'+wm[1]+' '+m.w.t+'°F</b>feels '+m.w.fl+'° · '+m.w.pop+'% rain · wind '+m.w.wd+' mph<br>'+wm[0]+'</div></div>'}).join("");
+const ds=new Date(P.date+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric",timeZone:P.tz});
+const nw=new Date().toLocaleString("en-US",{hour:"numeric",minute:"2-digit",month:"short",day:"numeric",timeZone:P.tz});
+app.innerHTML='<h1>☁️ Forecast - '+P.venue+'</h1><div class="sub">'+ds+' · live from Open-Meteo</div>'+banner+'<div class="rows">'+rows+'</div><div class="foot"><span>Updated '+nw+' - refreshes every time this brief is opened.</span><span>Source: Open-Meteo</span></div>'}
+run();
+</script></body></html>
