@@ -31,7 +31,7 @@ if(!P.date){err("No event date in the embed URL (?date=YYYY-MM-DD).");return}
 const u="https://api.open-meteo.com/v1/forecast?latitude="+P.lat+"&longitude="+P.lon+"&hourly=temperature_2m,apparent_temperature,precipitation_probability,weathercode,windspeed_10m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone="+encodeURIComponent(P.tz)+"&start_date="+P.date+"&end_date="+P.date;
 let d;try{const r=await fetch(u);if(!r.ok)throw new Error("HTTP "+r.status);d=await r.json()}catch(e){err("Couldn't reach Open-Meteo ("+e.message+"). Refresh to retry.");return}
 const H=d.hourly;if(!H||!H.time){err("No hourly data for this date yet - it may be beyond the ~16-day forecast horizon. It fills in automatically as the date nears.");return}
-const at=hh=>{const i=H.time.indexOf(P.date+"T"+hh+":00");return i<0?null:{t:Math.round(H.temperature_2m[i]),fl:Math.round(H.apparent_temperature[i]),pop:H.precipitation_probability[i],wc:H.weathercode[i],wd:Math.round(H.windspeed_10m[i])}};
+const at=hh=>{const i=H.time.indexOf(P.date+"T"+hh);return i<0?null:{t:Math.round(H.temperature_2m[i]),fl:Math.round(H.apparent_temperature[i]),pop:H.precipitation_probability[i],wc:H.weathercode[i],wd:Math.round(H.windspeed_10m[i])}};
 const M=P.moments.map(s=>{const o=s.includes("!outdoor");s=s.replace("!outdoor","");const[l,h]=s.split("@");return{l:l.trim(),h:h.trim(),o:o,w:at(h.trim())}});
 const outs=M.filter(m=>m.o&&m.w);let banner="";
 if(outs.length){const x=outs.reduce((a,b)=>b.w.pop>a.w.pop?b:a),p=x.w.pop;let c,dt,tx;
